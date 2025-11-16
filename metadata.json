@@ -1,0 +1,5 @@
+{
+  "name": "Mobile Settlement Strategy",
+  "description": "A simplified real-time multiplayer strategy game inspired by Tribal Wars, optimized for mobile. Manage resources, build structures, and interact with an AI advisor.",
+  "requestFramePermissions": []
+}
