@@ -127,10 +127,15 @@ export const updateGameState = (prevState: GameState): GameState => {
       case GameActionType.BUILDING_CONSTRUCTION: {
         const { buildingType, level } = action.details;
         const buildingIndex = newState.buildings.findIndex(b => b.type === buildingType);
+        
+        const remainingJobsForBuilding = newState.currentActions.some(
+            a => a.type === GameActionType.BUILDING_CONSTRUCTION && a.details.buildingType === buildingType
+        );
+
         if (buildingIndex > -1) {
-          newState.buildings[buildingIndex] = { ...newState.buildings[buildingIndex], level, isUnderConstruction: false, constructionEndTime: undefined };
+          newState.buildings[buildingIndex] = { ...newState.buildings[buildingIndex], level, isUnderConstruction: remainingJobsForBuilding, constructionEndTime: undefined };
         } else {
-          newState.buildings.push({ type: buildingType, level, isUnderConstruction: false });
+           newState.buildings.push({ type: buildingType, level, isUnderConstruction: remainingJobsForBuilding });
         }
         newMessages.push(`${BUILDING_DEFINITIONS[buildingType].name} dokončeno na úroveň ${level}!`);
         newState.resourceCapacity = calculateResourceCapacity(newState.buildings);
@@ -193,6 +198,18 @@ export const updateGameState = (prevState: GameState): GameState => {
   return newState;
 };
 
+export const calculateBuildingQueueSize = (buildings: PlayerBuilding[]): number => {
+    let queueSize = 1; // Base queue size
+    const hq = buildings.find(b => b.type === BuildingType.HEADQUARTERS && !b.isUnderConstruction);
+    if (hq) {
+        const bonusLevels = BUILDING_DEFINITIONS[BuildingType.HEADQUARTERS].buildingQueueBonus;
+        if (bonusLevels && bonusLevels > 0) {
+            queueSize += Math.floor(hq.level / bonusLevels);
+        }
+    }
+    return queueSize;
+};
+
 export const startConstruction = (prevState: GameState, buildingType: BuildingType, isUpgrade: boolean): [GameState, string | null] => {
   const buildingDef = BUILDING_DEFINITIONS[buildingType];
   const existingBuilding = prevState.buildings.find(b => b.type === buildingType);
@@ -201,7 +218,12 @@ export const startConstruction = (prevState: GameState, buildingType: BuildingTy
 
   if (targetLevel > buildingDef.maxLevel) return [prevState, `${buildingDef.name} je na maximální úrovni.`];
   if (existingBuilding?.isUnderConstruction) return [prevState, `${buildingDef.name} se již staví.`];
-  if (prevState.currentActions.some(a => a.type === GameActionType.BUILDING_CONSTRUCTION)) return [prevState, 'Již probíhá jiná stavba.'];
+  
+  const constructionQueueSize = calculateBuildingQueueSize(prevState.buildings);
+  const currentConstructionJobs = prevState.currentActions.filter(a => a.type === GameActionType.BUILDING_CONSTRUCTION).length;
+  if (currentConstructionJobs >= constructionQueueSize) {
+    return [prevState, `Stavební fronta je plná (${currentConstructionJobs}/${constructionQueueSize}). Vylepši hlavní budovu pro více slotů.`];
+  }
 
   // Tutorial restrictions
   if (prevState.tutorialActive) {
@@ -238,16 +260,22 @@ export const startConstruction = (prevState: GameState, buildingType: BuildingTy
   const hqModifier = hq ? 1 - (BUILDING_DEFINITIONS[BuildingType.HEADQUARTERS].buildTimeModifier || 0) * hq.level : 1;
   const buildTime = (buildingDef.buildTimeSeconds * 1000 * hqModifier) / WORLD_SPEED;
 
-  const newBuildings = prevState.buildings.map(b => b.type === buildingType ? { ...b, isUnderConstruction: true, constructionEndTime: Date.now() + buildTime } : b);
+  const lastConstructionAction = prevState.currentActions
+    .filter(a => a.type === GameActionType.BUILDING_CONSTRUCTION)
+    .sort((a,b) => b.endTime - a.endTime)[0];
+  const startTime = lastConstructionAction ? lastConstructionAction.endTime : Date.now();
+  const endTime = startTime + buildTime;
+
+  const newBuildings = prevState.buildings.map(b => b.type === buildingType ? { ...b, isUnderConstruction: true, constructionEndTime: endTime } : b);
   if (!existingBuilding) {
-    newBuildings.push({ type: buildingType, level: 0, isUnderConstruction: true, constructionEndTime: Date.now() + buildTime });
+    newBuildings.push({ type: buildingType, level: 0, isUnderConstruction: true, constructionEndTime: endTime });
   }
 
   const newAction: GameAction = {
     id: `build-${buildingType}-${targetLevel}-${Date.now()}`,
     type: GameActionType.BUILDING_CONSTRUCTION,
-    startTime: Date.now(),
-    endTime: Date.now() + buildTime,
+    startTime: startTime,
+    endTime: endTime,
     details: { buildingType, level: targetLevel },
     message: `${isUpgrade ? 'Vylepšuji' : 'Stavím'} ${buildingDef.name} na úroveň ${targetLevel}...`,
   };

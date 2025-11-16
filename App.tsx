@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   BuildingType,
@@ -28,6 +29,7 @@ import VillageView from './components/VillageView';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import TutorialOverlay from './components/TutorialOverlay'; // New import
+import UnitOverview from './components/UnitOverview'; // New import
 
 enum ActiveModal {
   NONE,
@@ -97,9 +99,11 @@ const App: React.FC = () => {
     return gameService.calculateCurrentProduction(gameState.buildings);
   }, [gameState]);
 
-  const isBuildingActionActive = useMemo(() => {
-    if (!gameState) return false;
-    return gameState.currentActions.some(action => action.type === 'building_construction');
+  const buildingQueueStatus = useMemo(() => {
+    if (!gameState) return { current: 0, max: 1 };
+    const current = gameState.currentActions.filter(a => a.type === 'building_construction').length;
+    const max = gameService.calculateBuildingQueueSize(gameState.buildings);
+    return { current, max };
   }, [gameState]);
   
   const isAttackActionActive = useMemo(() => {
@@ -442,19 +446,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {gameState.currentActions.length > 0 && (
-          <div className="bg-stone-800 p-3 rounded-lg shadow-lg mb-4 border border-stone-700">
-            <h2 className="text-lg font-semibold text-amber-200 mb-2">Aktivní akce</h2>
-            <div className="space-y-2">
-              {gameState.currentActions.map(action => (
-                <div key={action.id} className="bg-stone-700 p-2 rounded-md flex justify-between items-center shadow-sm">
-                  <span className="text-sm text-stone-200">{action.message}</span>
-                  <span className="text-xs text-stone-400">{Math.max(0, Math.ceil((action.endTime - Date.now()) / 1000))}s</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Removed "Aktivní akce" from main content area */}
 
         <VillageView 
           buildings={gameState.buildings} 
@@ -488,7 +480,7 @@ const App: React.FC = () => {
             playerBuilding={gameState.buildings.find(b => b.type === selectedBuildingDef.type)}
             playerResources={gameState.resources}
             onBuildOrUpgrade={handleBuildOrUpgrade}
-            isBuildingActionActive={isBuildingActionActive}
+            isBuildingActionActive={buildingQueueStatus.current >= buildingQueueStatus.max}
             tutorialHighlightId={tutorialHighlightId} // Pass highlight ID
           />
         </Modal>
@@ -505,6 +497,8 @@ const App: React.FC = () => {
               <p className="text-red-400 text-xl">{Math.floor(armyStats.defense)}</p>
             </div>
           </div>
+          {/* UnitOverview component integrated here */}
+          <UnitOverview units={gameState.units} /> 
           <div className="p-3 border-t-2 border-stone-900 flex justify-center bg-stone-800 rounded-b-lg mt-4">
             <button
                 onClick={handleLogout}
@@ -568,12 +562,35 @@ const App: React.FC = () => {
       </Modal>
 
       <Modal isOpen={activeModal === ActiveModal.LOG} onClose={closeModal} title="Herní deník">
-        <div className="flex flex-col h-[70vh] bg-stone-800 rounded-lg shadow-inner overflow-y-auto p-4 space-y-2">
-          {gameState.messages.length === 0 ? <p className="text-stone-400 text-center italic">Žádné události.</p> : (
-            [...gameState.messages].reverse().map((msg, index) => (
-              <div key={index} className="text-sm text-stone-200 bg-stone-700 p-2 rounded-md">{msg}</div>
-            ))
-          )}
+        <div className="flex flex-col h-[70vh] bg-stone-800 rounded-lg shadow-inner overflow-y-auto p-4 space-y-4">
+          {/* Active Actions Section */}
+          <div className="bg-stone-900 p-3 rounded-lg shadow-lg border border-stone-700">
+            <h2 className="text-lg font-semibold text-amber-200 mb-2">Aktivní akce</h2>
+            {gameState.currentActions.length > 0 ? (
+              <div className="space-y-2">
+                {gameState.currentActions.map(action => (
+                  <div key={action.id} className="bg-stone-700 p-2 rounded-md flex justify-between items-center shadow-sm">
+                    <span className="text-sm text-stone-200">{action.message}</span>
+                    <span className="text-xs text-stone-400">{Math.max(0, Math.ceil((action.endTime - Date.now()) / 1000))}s</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-stone-400 text-center italic">Momentálně neprobíhají žádné aktivní akce.</p>
+            )}
+          </div>
+
+          {/* Game Log Section */}
+          <div className="bg-stone-900 p-3 rounded-lg shadow-lg border border-stone-700">
+            <h2 className="text-lg font-semibold text-amber-200 mb-2">Historie událostí</h2>
+            {gameState.messages.length === 0 ? <p className="text-stone-400 text-center italic">Žádné události.</p> : (
+              <div className="flex flex-col space-y-2">
+                {[...gameState.messages].reverse().map((msg, index) => (
+                  <div key={index} className="text-sm text-stone-200 bg-stone-700 p-2 rounded-md">{msg}</div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </Modal>
     </div>

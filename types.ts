@@ -36,6 +36,7 @@ export interface BuildingDefinition {
   storageBonus?: number; // per level
   buildTimeModifier?: number; // percentage reduction per level
   recruitTimeModifier?: number; // percentage reduction per level
+  buildingQueueBonus?: number; // 1 extra slot for every N levels
   maxLevel: number;
 }
 

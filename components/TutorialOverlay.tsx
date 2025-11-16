@@ -80,7 +80,6 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({
   onComplete,
   gameState,
 }) => {
-  // Fix: Initialize positionStyle with React.CSSProperties type
   const [positionStyle, setPositionStyle] = useState<React.CSSProperties>({});
   const [isMessagePopOverVisible, setIsMessagePopOverVisible] = useState(true);
 
@@ -129,7 +128,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({
         width: 'calc(100% - 2rem)', // Fill most of the width on mobile
       });
     } else {
-      setPositionStyle({}); // Hide popover when not visible
+      setPositionStyle({}); // Clear style when popover is not visible or no highlight
     }
   }, [tutorialHighlightId, tutorialStep, isMessagePopOverVisible]);
 
@@ -189,20 +188,24 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({
 
   if (!currentMessage || tutorialStep === 99) return null; // Tutorial finished
 
-  // Access position directly as it's now typed
-  const isPopoverAbsolute = positionStyle.position === 'absolute';
+  // Determine if the overall tutorial overlay is active (either message visible or element highlighted)
+  const showOverallOverlay = isMessagePopOverVisible || (tutorialHighlightId !== null);
 
   return (
     <div
-      className={`fixed inset-0 bg-black bg-opacity-70 z-40 transition-all duration-300
-        ${!isMessagePopOverVisible ? 'pointer-events-none' : ''}
+      className={`fixed inset-0 z-40 transition-opacity duration-300
+        ${isMessagePopOverVisible ? 'bg-black bg-opacity-70' : 'bg-transparent'}
+        ${isMessagePopOverVisible ? 'pointer-events-auto' : 'pointer-events-none'}
       `}
-      aria-hidden={isMessagePopOverVisible ? 'false' : 'true'}
+      style={{
+        display: showOverallOverlay ? 'block' : 'none', // Explicitly control display
+      }}
+      aria-hidden={!showOverallOverlay}
     >
       {isMessagePopOverVisible && (
         <div
           className={`bg-stone-800 border border-stone-600 rounded-lg shadow-2xl p-4 text-stone-100 text-center flex flex-col items-center pointer-events-auto z-46
-            ${isPopoverAbsolute ? '' : 'w-11/12 max-w-sm'}
+            ${positionStyle.position === 'absolute' ? '' : 'w-11/12 max-w-sm'}
           `}
           style={positionStyle}
         >
@@ -210,7 +213,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({
           <p className="text-sm text-stone-300 mb-4">{currentMessage.text}</p>
           <button
             onClick={handleButtonClick}
-            // Button is disabled only if it's an advanceOnAction step and message is hidden AND it's not step 7 (recruit button)
+            // Button is disabled only if it's an advanceOnAction step AND the message popover is hidden
             disabled={currentMessage.advanceOnAction && !isMessagePopOverVisible && tutorialStep !== 7}
             data-tutorial-id={tutorialStep === 9 ? 'tutorial-finish-button' : undefined} // For targeting the final button
             className={`px-6 py-2 rounded-md font-semibold transition-colors duration-200

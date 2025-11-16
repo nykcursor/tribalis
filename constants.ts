@@ -21,11 +21,12 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
   [BuildingType.HEADQUARTERS]: {
     type: BuildingType.HEADQUARTERS,
     name: 'Hlavní budova',
-    description: 'Zrychluje stavbu ostatních budov. Čím vyšší úroveň, tím rychleji stavíš.',
+    description: 'Zrychluje stavbu ostatních budov a umožňuje stavět více budov najednou.',
     baseCost: { [ResourceType.WOOD]: 200, [ResourceType.CLAY]: 180, [ResourceType.IRON]: 170 },
     costMultiplier: 1.25,
     buildTimeSeconds: 60,
     buildTimeModifier: 0.05, // 5% reduction per level
+    buildingQueueBonus: 5, // 1 extra slot every 5 levels
     maxLevel: 20,
   },
   [BuildingType.WOODCUTTER]: {

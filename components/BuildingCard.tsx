@@ -1,6 +1,7 @@
 
 import React, { useMemo } from 'react';
 import { BuildingDefinition, BuildingType, PlayerBuilding, ResourceType } from '../types';
+import { INITIAL_GAME_STATE, WORLD_SPEED } from '../constants';
 
 interface BuildingCardProps {
   buildingDef: BuildingDefinition;
@@ -42,6 +43,42 @@ const BuildingCard: React.FC<BuildingCardProps> = ({
     return true;
   }, [cost, playerResources]);
 
+  const nextLevelBonusText = useMemo(() => {
+    const nextLevel = currentLevel + 1;
+    if (isMaxLevel) return null;
+
+    const { productionFactor, storageBonus, populationBonus, buildTimeModifier, recruitTimeModifier, defenseBonus } = buildingDef;
+
+    if (productionFactor) {
+      const resType = Object.keys(productionFactor)[0] as ResourceType;
+      const factor = productionFactor[resType]!;
+      const baseRate = 0.5; // From gameService
+      const currentLevelProduction = currentLevel > 0 ? baseRate * Math.pow(factor, currentLevel - 1) : 0;
+      const nextLevelProduction = baseRate * Math.pow(factor, nextLevel - 1);
+      const increase = (nextLevelProduction - currentLevelProduction) * 3600 * WORLD_SPEED;
+      return `Produkce: +${increase.toFixed(0)}/h`;
+    }
+    if (storageBonus) {
+      return `Kapacita: +${storageBonus}`;
+    }
+    if (populationBonus) {
+       return `Populace: +${populationBonus}`;
+    }
+    if (buildTimeModifier) {
+        const currentBonusPercent = currentLevel > 0 ? (1 - Math.pow(1 - buildTimeModifier, currentLevel)) * 100 : 0;
+        const nextBonusPercent = (1 - Math.pow(1 - buildTimeModifier, nextLevel)) * 100;
+        return `Rychlost stavby: ${currentBonusPercent.toFixed(1)}% -> ${nextBonusPercent.toFixed(1)}%`;
+    }
+    if (recruitTimeModifier) {
+        const nextBonusPercent = (1 - Math.pow(1 - recruitTimeModifier, nextLevel)) * 100;
+        return `Rychlost verbování na úr. ${nextLevel}: ${nextBonusPercent.toFixed(1)}%`;
+    }
+    if (defenseBonus) {
+        return `Bonus obrany: +${defenseBonus}`;
+    }
+    return null;
+  }, [buildingDef, currentLevel, isMaxLevel]);
+
   const buttonText = currentLevel === 0 ? 'Postavit' : 'Vylepšit';
   const buttonDisabled = isMaxLevel || isUnderConstruction || !canAfford || isBuildingActionActive;
 
@@ -58,17 +95,24 @@ const BuildingCard: React.FC<BuildingCardProps> = ({
           <p className="text-sky-400 font-semibold mb-2">Staví se...</p>
         )}
         {!isMaxLevel && !isUnderConstruction && (
-          <div className="mb-3">
-            <p className="text-stone-100 text-sm md:text-base mb-1">Cena za úroveň {currentLevel + 1}:</p>
-            <div className="grid grid-cols-2 gap-x-4 text-stone-300 text-xs md:text-sm">
-              {Object.entries(cost).map(([resType, amount]) => (
-                <div key={resType} className={`flex justify-between ${playerResources[resType as ResourceType] < amount ? 'text-red-400' : ''}`}>
-                  <span>{resType.charAt(0).toUpperCase() + resType.slice(1)}:</span>
-                  <span>{amount}</span>
-                </div>
-              ))}
+          <>
+            <div className="mb-3">
+              <p className="text-stone-100 text-sm md:text-base mb-1">Cena za úroveň {currentLevel + 1}:</p>
+              <div className="grid grid-cols-2 gap-x-4 text-stone-300 text-xs md:text-sm">
+                {Object.entries(cost).map(([resType, amount]) => (
+                  <div key={resType} className={`flex justify-between ${playerResources[resType as ResourceType] < amount ? 'text-red-400' : ''}`}>
+                    <span>{resType.charAt(0).toUpperCase() + resType.slice(1)}:</span>
+                    <span>{amount}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+            {nextLevelBonusText && (
+              <div className="bg-stone-900 p-2 rounded-md mb-3">
+                 <p className="text-sm text-sky-300 font-semibold">{nextLevelBonusText}</p>
+              </div>
+            )}
+          </>
         )}
       </div>
       <button
@@ -83,7 +127,7 @@ const BuildingCard: React.FC<BuildingCardProps> = ({
           ${isUpgradeButtonHighlighted || isBuildButtonHighlighted ? 'ring-4 ring-yellow-400 ring-offset-2 ring-offset-stone-900 z-45' : ''}
           `}
       >
-        {isMaxLevel ? 'Max. úroveň' : isUnderConstruction ? 'Staví se...' : buttonText}
+        {isMaxLevel ? 'Max. úroveň' : isUnderConstruction ? 'Staví se...' : isBuildingActionActive ? 'Fronta je plná' : buttonText}
       </button>
     </div>
   );

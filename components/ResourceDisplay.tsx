@@ -35,7 +35,7 @@ const ResourceDisplay: React.FC<ResourceDisplayProps> = ({ resources, capacity, 
           <span className="text-lg sm:text-xl">{getIcon(type)}</span>
           <div className="flex flex-col items-start">
             <span className="font-bold whitespace-nowrap">
-              {Math.floor(resources[type] || 0)}
+              {Math.floor(resources[type] || 0)}{type !== ResourceType.FOOD ? `/${Math.floor(capacity)}` : ''}
             </span>
              <span className="text-stone-400 text-xs whitespace-nowrap">
                 {formatProduction(productionRates[type] || 0)}
