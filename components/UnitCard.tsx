@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { UnitDefinition, UnitType, ResourceType } from '../types';
 
@@ -6,9 +7,10 @@ interface UnitCardProps {
   playerResources: Record<ResourceType, number>;
   population: { current: number; capacity: number };
   onRecruit: (type: UnitType, amount: number) => void;
+  tutorialHighlightId?: string | null; // New prop for tutorial highlighting
 }
 
-const UnitCard: React.FC<UnitCardProps> = ({ unitDef, playerResources, population, onRecruit }) => {
+const UnitCard: React.FC<UnitCardProps> = ({ unitDef, playerResources, population, onRecruit, tutorialHighlightId }) => {
   const [amount, setAmount] = useState<string>('');
 
   const numAmount = parseInt(amount) || 0;
@@ -57,6 +59,10 @@ const UnitCard: React.FC<UnitCardProps> = ({ unitDef, playerResources, populatio
     }
   };
 
+  const isAmountInputHighlighted = tutorialHighlightId === `recruit-unit-${unitDef.type}-amount`;
+  const isRecruitButtonHighlighted = tutorialHighlightId === `recruit-unit-${unitDef.type}-button`;
+
+
   return (
     <div className="bg-stone-800 border border-stone-900 rounded-lg shadow-md p-3 flex flex-col sm:flex-row justify-between items-center gap-3 text-stone-200">
       <div className="flex-1">
@@ -73,17 +79,23 @@ const UnitCard: React.FC<UnitCardProps> = ({ unitDef, playerResources, populatio
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           placeholder="0"
-          className="w-16 p-1 rounded-md border border-stone-600 bg-stone-700 text-stone-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
+          data-tutorial-id={`recruit-unit-${unitDef.type}-amount`}
+          className={`w-16 p-1 rounded-md border border-stone-600 bg-stone-700 text-stone-100 focus:outline-none focus:ring-2 focus:ring-orange-500
+            ${isAmountInputHighlighted ? 'ring-4 ring-yellow-400 ring-offset-2 ring-offset-stone-900 z-45' : ''}
+          `}
         />
         <button onClick={handleMaxClick} className="text-xs bg-stone-600 hover:bg-stone-500 px-2 py-1 rounded-md">Max</button>
         <button
           onClick={handleRecruitClick}
           disabled={!canAfford}
+          data-tutorial-id={`recruit-unit-${unitDef.type}-button`}
           className={`px-3 py-1 rounded-md font-semibold transition-colors duration-200 text-sm
             ${!canAfford
               ? 'bg-stone-600 text-stone-400 cursor-not-allowed'
               : 'bg-orange-600 text-white hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500'
-            }`}
+            }
+            ${isRecruitButtonHighlighted ? 'ring-4 ring-yellow-400 ring-offset-2 ring-offset-stone-900 z-45' : ''}
+          `}
         >
           Verbovat
         </button>

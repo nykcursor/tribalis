@@ -1,3 +1,4 @@
+
 export enum ResourceType {
   WOOD = 'wood',
   CLAY = 'clay',
@@ -29,7 +30,7 @@ export interface BuildingDefinition {
   baseCost: Partial<Record<ResourceType, number>>;
   costMultiplier: number;
   buildTimeSeconds: number;
-  productionBonus?: Partial<Record<ResourceType, number>>; // per second per level
+  productionFactor?: Partial<Record<ResourceType, number>>; // Factor for exponential growth per level
   defenseBonus?: number; // per level
   populationBonus?: number; // per level
   storageBonus?: number; // per level
@@ -92,6 +93,7 @@ export interface AIAdvice {
 }
 
 export interface GameState {
+  villageName: string; // Added for user accounts
   resources: Record<ResourceType, number>;
   resourceCapacity: number;
   buildings: PlayerBuilding[];
@@ -104,4 +106,14 @@ export interface GameState {
   messages: string[];
   playerLevel: number;
   lastTickTime: number;
+  tutorialStep: number; // New: Current step of the tutorial
+  tutorialActive: boolean; // New: Is the tutorial currently active?
+}
+
+export interface User {
+  id: string;
+  email: string;
+  villageName: string;
+  hashedPassword: string; // Storing hashed password for simulation
+  gameState: GameState;
 }

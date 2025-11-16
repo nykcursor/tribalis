@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { BuildingDefinition, BuildingType, PlayerBuilding, ResourceType } from '../types';
 
@@ -7,6 +8,7 @@ interface BuildingCardProps {
   playerResources: Record<ResourceType, number>;
   onBuildOrUpgrade: (type: BuildingType, isUpgrade: boolean) => void;
   isBuildingActionActive: boolean;
+  tutorialHighlightId?: string | null; // New prop for tutorial highlighting
 }
 
 const BuildingCard: React.FC<BuildingCardProps> = ({
@@ -15,6 +17,7 @@ const BuildingCard: React.FC<BuildingCardProps> = ({
   playerResources,
   onBuildOrUpgrade,
   isBuildingActionActive,
+  tutorialHighlightId,
 }) => {
   const currentLevel = playerBuilding?.level || 0;
   const isMaxLevel = currentLevel >= buildingDef.maxLevel;
@@ -42,6 +45,9 @@ const BuildingCard: React.FC<BuildingCardProps> = ({
   const buttonText = currentLevel === 0 ? 'Postavit' : 'Vylepšit';
   const buttonDisabled = isMaxLevel || isUnderConstruction || !canAfford || isBuildingActionActive;
 
+  const isUpgradeButtonHighlighted = tutorialHighlightId === `upgrade-button-${buildingDef.type}`;
+  const isBuildButtonHighlighted = tutorialHighlightId === `build-button-${buildingDef.type}`;
+
   return (
     <div className="bg-stone-800 border border-stone-900 rounded-lg shadow-md p-4 flex flex-col justify-between h-full text-stone-200">
       <div>
@@ -68,11 +74,14 @@ const BuildingCard: React.FC<BuildingCardProps> = ({
       <button
         onClick={() => onBuildOrUpgrade(buildingDef.type, currentLevel > 0)}
         disabled={buttonDisabled}
+        data-tutorial-id={currentLevel === 0 ? `build-button-${buildingDef.type}` : `upgrade-button-${buildingDef.type}`} // Tutorial ID for targeting
         className={`w-full mt-2 py-2 px-4 rounded-md font-semibold transition-colors duration-200
           ${buttonDisabled
             ? 'bg-stone-600 text-stone-400 cursor-not-allowed'
             : 'bg-orange-600 text-white hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2'
-          }`}
+          }
+          ${isUpgradeButtonHighlighted || isBuildButtonHighlighted ? 'ring-4 ring-yellow-400 ring-offset-2 ring-offset-stone-900 z-45' : ''}
+          `}
       >
         {isMaxLevel ? 'Max. úroveň' : isUnderConstruction ? 'Staví se...' : buttonText}
       </button>

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BuildingType, PlayerBuilding } from '../types';
 import { BUILDING_DEFINITIONS } from '../constants';
@@ -6,6 +7,7 @@ import VillageBuilding from './VillageBuilding';
 interface VillageViewProps {
   buildings: PlayerBuilding[];
   onBuildingClick: (type: BuildingType) => void;
+  tutorialHighlightId?: string | null; // New prop
 }
 
 const buildingPositions: Record<BuildingType, string> = {
@@ -19,9 +21,19 @@ const buildingPositions: Record<BuildingType, string> = {
   [BuildingType.WALL]: 'col-start-1 row-start-1 col-span-4',
 };
 
-const VillageView: React.FC<VillageViewProps> = ({ buildings, onBuildingClick }) => {
+const VillageView: React.FC<VillageViewProps> = ({ buildings, onBuildingClick, tutorialHighlightId }) => {
   return (
-    <div className="bg-green-900 bg-opacity-40 p-2 sm:p-4 rounded-lg border-2 border-stone-700 max-w-2xl mx-auto flex-grow">
+    <div
+      className="relative p-2 sm:p-4 rounded-lg border-2 border-stone-700 max-w-2xl mx-auto flex-grow min-h-0 overflow-hidden shadow-inner"
+      style={{
+        backgroundImage: `
+          radial-gradient(ellipse at center, transparent 20%, rgba(0,0,0,0.5) 100%),
+          linear-gradient(to bottom right, #4A2C2A, #2B1A1A)
+        `,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
       <div className="grid grid-cols-4 grid-rows-4 gap-2 h-full">
         {Object.values(BUILDING_DEFINITIONS).map(def => (
           <div key={def.type} className={buildingPositions[def.type] || ''}>
@@ -29,6 +41,7 @@ const VillageView: React.FC<VillageViewProps> = ({ buildings, onBuildingClick })
               buildingDef={def}
               playerBuilding={buildings.find(b => b.type === def.type)}
               onClick={onBuildingClick}
+              tutorialHighlightId={tutorialHighlightId} // Pass down tutorial highlight ID
             />
           </div>
         ))}

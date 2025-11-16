@@ -1,6 +1,10 @@
+
 import { BuildingType, ResourceType, PlayerBuilding, GameState, BuildingDefinition, UnitType, UnitDefinition } from './types';
 
-export const WORLD_SPEED = 1.5; // Zrychluje produkci, stavbu a verbování
+export const WORLD_SPEED = 10; // Zrychluje produkci, stavbu a verbování
+export const PROD_SPEED = 4; // Rychlost produkce
+export const TROP_SPEED = 2; // Rychlost pohybu jednotek
+
 
 export const INITIAL_RESOURCES: Record<ResourceType, number> = {
   [ResourceType.WOOD]: 150,
@@ -31,7 +35,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     baseCost: { [ResourceType.WOOD]: 60, [ResourceType.CLAY]: 50, [ResourceType.IRON]: 40 },
     costMultiplier: 1.2,
     buildTimeSeconds: 45,
-    productionBonus: { [ResourceType.WOOD]: 0.05 }, // Base production per second (will be multiplied by level and world speed)
+    productionFactor: { [ResourceType.WOOD]: 1.15 }, // Exponential growth factor
     maxLevel: 30,
   },
   [BuildingType.CLAY_PIT]: {
@@ -41,7 +45,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     baseCost: { [ResourceType.WOOD]: 50, [ResourceType.CLAY]: 60, [ResourceType.IRON]: 40 },
     costMultiplier: 1.2,
     buildTimeSeconds: 45,
-    productionBonus: { [ResourceType.CLAY]: 0.05 },
+    productionFactor: { [ResourceType.CLAY]: 1.15 },
     maxLevel: 30,
   },
   [BuildingType.IRON_MINE]: {
@@ -51,7 +55,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     baseCost: { [ResourceType.WOOD]: 70, [ResourceType.CLAY]: 80, [ResourceType.IRON]: 90 },
     costMultiplier: 1.22,
     buildTimeSeconds: 55,
-    productionBonus: { [ResourceType.IRON]: 0.025 },
+    productionFactor: { [ResourceType.IRON]: 1.15 },
     maxLevel: 30,
   },
    [BuildingType.FARM]: {
@@ -61,7 +65,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     baseCost: { [ResourceType.WOOD]: 45, [ResourceType.CLAY]: 40, [ResourceType.IRON]: 30 },
     costMultiplier: 1.18,
     buildTimeSeconds: 40,
-    productionBonus: { [ResourceType.FOOD]: 0.05 },
+    productionFactor: { [ResourceType.FOOD]: 1.15 }, // Base food production for exponential scaling
     populationBonus: 20, // +20 population capacity per level
     maxLevel: 30,
   },
@@ -140,6 +144,7 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitDefinition> = {
 export const GAME_TICK_INTERVAL_MS = 1000;
 
 export const INITIAL_GAME_STATE: GameState = {
+  villageName: 'Nová Vesnice', // Default village name
   resources: { ...INITIAL_RESOURCES },
   resourceCapacity: 1000,
   buildings: [...INITIAL_PLAYER_BUILDINGS],
@@ -159,6 +164,8 @@ export const INITIAL_GAME_STATE: GameState = {
   messages: ["Vítej ve své nové vesnici! Stavěj moudře a veď svůj lid k vítězství."],
   playerLevel: 1,
   lastTickTime: Date.now(),
+  tutorialStep: 0, // Initialize tutorial step for new players
+  tutorialActive: true, // Tutorial is active for new players
 };
 
 export const AI_ADVISOR_SYSTEM_INSTRUCTION = `You are a strategic advisor for a mobile real-time strategy game. Your goal is to provide concise and actionable advice to the player based on their current game state. Focus on resource management, building priorities, unit recruitment, and strategic moves (attack/defend). Respond with a JSON object.`;

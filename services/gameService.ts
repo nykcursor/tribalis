@@ -1,3 +1,4 @@
+
 import {
   BuildingType,
   GameAction,
@@ -22,22 +23,41 @@ export const getInitialGameState = (): GameState => {
   return JSON.parse(JSON.stringify(INITIAL_GAME_STATE));
 };
 
+export const getInitialGameStateForUser = (villageName: string): GameState => {
+  const initialState = JSON.parse(JSON.stringify(INITIAL_GAME_STATE));
+  initialState.villageName = villageName;
+  initialState.messages = [`Vítej ve své nové vesnici, ${villageName}! Stavěj moudře a veď svůj lid k vítězství.`];
+  initialState.tutorialStep = 0; // Ensure tutorial starts at 0 for new users
+  initialState.tutorialActive = true; // Activate tutorial for new users
+  return initialState;
+};
+
 export const calculateCurrentProduction = (buildings: PlayerBuilding[]): Partial<Record<ResourceType, number>> => {
+  // Base passive production for all resources (even without specific buildings)
   const production: Partial<Record<ResourceType, number>> = {
-      [ResourceType.WOOD]: 0.01,
-      [ResourceType.CLAY]: 0.01,
-      [ResourceType.IRON]: 0.01,
-      [ResourceType.FOOD]: 0.01,
+      [ResourceType.WOOD]: 0.5, // Base production per second
+      [ResourceType.CLAY]: 0.5,
+      [ResourceType.IRON]: 0.5,
+      [ResourceType.FOOD]: 1.0, // Food might have a slightly higher baseline
   };
+
   for (const building of buildings) {
     if (building.isUnderConstruction) continue;
 
     const def = BUILDING_DEFINITIONS[building.type];
-    if (def.productionBonus) {
-      for (const resType in def.productionBonus) {
+    if (def.productionFactor) {
+      for (const resType in def.productionFactor) {
         const type = resType as ResourceType;
-        const bonusPerLevel = def.productionBonus[type] || 0;
-        production[type] = (production[type] || 0) + bonusPerLevel * building.level;
+        // Each resource-producing building (Woodcutter, Clay Pit, Iron Mine, Farm)
+        // adds to the total production of its respective resource.
+        // The base rate for a level 1 building.
+        const baseRatePerBuildingLevel1 = 0.5; // This could also be configurable in constants if needed
+        const factor = def.productionFactor[type] || 1; // Default factor is 1 if not specified
+
+        // Accumulate production: base rate for level 1 * (factor ^ (level - 1))
+        // At level 1, this adds baseRatePerBuildingLevel1 * factor^0 = baseRatePerBuildingLevel1
+        // At level 2, this adds baseRatePerBuildingLevel1 * factor^1
+        production[type] = (production[type] || 0) + (baseRatePerBuildingLevel1 * Math.pow(factor, building.level - 1));
       }
     }
   }
@@ -115,12 +135,32 @@ export const updateGameState = (prevState: GameState): GameState => {
         newMessages.push(`${BUILDING_DEFINITIONS[buildingType].name} dokončeno na úroveň ${level}!`);
         newState.resourceCapacity = calculateResourceCapacity(newState.buildings);
         newState.population.capacity = calculatePopulationCapacity(newState.buildings);
+
+        // Tutorial Step Progression for Building Construction
+        if (newState.tutorialActive) {
+          if (newState.tutorialStep === 2 && buildingType === BuildingType.HEADQUARTERS && level === 2) {
+            newState.tutorialStep = 3; // HQ upgraded to L2, next step is build Woodcutter
+            newMessages.push("Tutorial: Tvoje hlavní budova je dokončena! Nyní postavíme dřevorubce.");
+          } else if (newState.tutorialStep === 4 && buildingType === BuildingType.WOODCUTTER && level === 1) {
+            newState.tutorialStep = 5; // Woodcutter built to L1, next step is build Barracks
+            newMessages.push("Tutorial: Dřevorubec je dokončen! Čas na kasárna.");
+          } else if (newState.tutorialStep === 6 && buildingType === BuildingType.BARRACKS && level === 1) {
+            newState.tutorialStep = 7; // Barracks built to L1, next step is open Recruit modal
+            newMessages.push("Tutorial: Kasárna jsou dokončena! Nyní můžeš verbovat jednotky.");
+          }
+        }
         break;
       }
       case GameActionType.UNIT_RECRUITMENT: {
           const { unitType, amount } = action.details;
           newState.units[unitType] = (newState.units[unitType] || 0) + amount;
           newMessages.push(`Vyverbováno ${amount}x ${UNIT_DEFINITIONS[unitType].name}!`);
+
+          // Tutorial Step Progression for Unit Recruitment
+          if (newState.tutorialActive && newState.tutorialStep === 8 && unitType === UnitType.SPEARMAN && amount > 0) {
+            newState.tutorialStep = 9; // Spearmen recruited, tutorial complete
+            newMessages.push("Tutorial: Výborně! Vycvičil jsi své první jednotky. Teď jsi připraven prozkoumat svět!");
+          }
           break;
       }
       case GameActionType.ATTACK_PREPARATION: {
@@ -163,6 +203,20 @@ export const startConstruction = (prevState: GameState, buildingType: BuildingTy
   if (existingBuilding?.isUnderConstruction) return [prevState, `${buildingDef.name} se již staví.`];
   if (prevState.currentActions.some(a => a.type === GameActionType.BUILDING_CONSTRUCTION)) return [prevState, 'Již probíhá jiná stavba.'];
 
+  // Tutorial restrictions
+  if (prevState.tutorialActive) {
+    if (prevState.tutorialStep === 0 && (buildingType !== BuildingType.HEADQUARTERS || targetLevel !== 2)) {
+      return [prevState, 'Tutorial: Nejprve vylepši hlavní budovu na úroveň 2.'];
+    }
+    if (prevState.tutorialStep === 3 && (buildingType !== BuildingType.WOODCUTTER || targetLevel !== 1)) {
+      return [prevState, 'Tutorial: Nyní postav dřevorubce.'];
+    }
+    if (prevState.tutorialStep === 5 && (buildingType !== BuildingType.BARRACKS || targetLevel !== 1)) {
+      return [prevState, 'Tutorial: Nyní postav kasárna.'];
+    }
+  }
+
+
   const cost: Partial<Record<ResourceType, number>> = {};
   for (const resType in buildingDef.baseCost) {
     const type = resType as ResourceType;
@@ -198,7 +252,19 @@ export const startConstruction = (prevState: GameState, buildingType: BuildingTy
     message: `${isUpgrade ? 'Vylepšuji' : 'Stavím'} ${buildingDef.name} na úroveň ${targetLevel}...`,
   };
 
-  return [{ ...prevState, resources: newResources, buildings: newBuildings, currentActions: [...prevState.currentActions, newAction], messages: [...prevState.messages, newAction.message].slice(-20) }, null];
+  let newTutorialStep = prevState.tutorialStep;
+  if (prevState.tutorialActive) {
+    if (prevState.tutorialStep === 0 && buildingType === BuildingType.HEADQUARTERS && targetLevel === 2) {
+      newTutorialStep = 1; // HQ upgrade started
+    } else if (prevState.tutorialStep === 3 && buildingType === BuildingType.WOODCUTTER && targetLevel === 1) {
+      newTutorialStep = 4; // Woodcutter build started
+    } else if (prevState.tutorialStep === 5 && buildingType === BuildingType.BARRACKS && targetLevel === 1) {
+      newTutorialStep = 6; // Barracks build started
+    }
+  }
+
+
+  return [{ ...prevState, resources: newResources, buildings: newBuildings, currentActions: [...prevState.currentActions, newAction], messages: [...prevState.messages, newAction.message].slice(-20), tutorialStep: newTutorialStep }, null];
 };
 
 export const startRecruitment = (prevState: GameState, unitType: UnitType, amount: number): [GameState, string | null] => {
@@ -206,6 +272,13 @@ export const startRecruitment = (prevState: GameState, unitType: UnitType, amoun
   const unitDef = UNIT_DEFINITIONS[unitType];
   const barracks = prevState.buildings.find(b => b.type === BuildingType.BARRACKS);
   if (!barracks || barracks.level === 0) return [prevState, 'Musíš postavit kasárna.'];
+
+  // Tutorial restrictions
+  if (prevState.tutorialActive) {
+    if (prevState.tutorialStep === 7 && (unitType !== UnitType.SPEARMAN || amount <= 0)) { // Changed to check for amount > 0
+      return [prevState, 'Tutorial: Nyní naverbuj alespoň jednoho kopiníka.'];
+    }
+  }
 
   const totalCost: Partial<Record<ResourceType, number>> = {};
   for(const resType in unitDef.cost) {
@@ -245,7 +318,12 @@ export const startRecruitment = (prevState: GameState, unitType: UnitType, amoun
   
   const newPopulation = { ...prevState.population, current: prevState.population.current + populationCost };
 
-  return [{ ...prevState, resources: newResources, population: newPopulation, currentActions: [...prevState.currentActions, newAction], messages: [...prevState.messages, newAction.message].slice(-20) }, null];
+  let newTutorialStep = prevState.tutorialStep;
+  if (prevState.tutorialActive && prevState.tutorialStep === 7 && unitType === UnitType.SPEARMAN && amount > 0) {
+    newTutorialStep = 8; // Spearmen recruitment started
+  }
+
+  return [{ ...prevState, resources: newResources, population: newPopulation, currentActions: [...prevState.currentActions, newAction], messages: [...prevState.messages, newAction.message].slice(-20), tutorialStep: newTutorialStep }, null];
 };
 
 
@@ -253,6 +331,11 @@ export const startAttack = (prevState: GameState): [GameState, string | null] =>
   if (prevState.currentActions.some(a => a.type === GameActionType.ATTACK_PREPARATION)) return [prevState, 'Útok již probíhá.'];
   const armyStats = calculateArmyStats(prevState.units);
   if (armyStats.attack <= 0) return [prevState, 'Nemáš žádné útočné jednotky!'];
+
+  // Tutorial restriction
+  if (prevState.tutorialActive && prevState.tutorialStep < 9) { // Disallow attack during tutorial
+    return [prevState, 'Tutorial: Útok je během tutoriálu zakázán.'];
+  }
 
   const opponentPower = BASE_OPPONENT_POWER_DEFENSE + Math.floor(Math.random() * OPPONENT_POWER_VARIANCE * 2) - OPPONENT_POWER_VARIANCE;
 
